@@ -28,7 +28,7 @@ public class GoogleBooksService {
 
         if (root == null || !root.has("items") || !root.get("items").isArray() || root.get("items").size() == 0) {
             System.out.println("No books found for query: " + query);
-            return new Book();  // Return an empty book (or null if you prefer)
+            return new Book();  //return empty
         }
 
         JsonNode volume = root.get("items").get(0);  // Get the first result
@@ -36,7 +36,7 @@ public class GoogleBooksService {
 
         Book book = new Book();
 
-        // Extract fields more safely
+        // Ill change to more readable statements sometime(later)
         book.setTitle(volumeInfo.path("title").asText("Unknown Title"));
 
         if (volumeInfo.has("authors") && volumeInfo.get("authors").isArray()) {

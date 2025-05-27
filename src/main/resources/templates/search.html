@@ -1,10 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
-    <title>Title</title>
+    <title>Virtual Library Search</title>
 </head>
 <body>
+<h1>Search for a Book</h1>
+<form th:action="@{/books/fetch-book}" method="get">
+    <input type="text" name="query" placeholder="Enter book title or ISBN" required />
+    <button type="submit">Search</button>
+</form>
 
+<div th:if="${book != null}">
+    <h2>Book Details:</h2>
+    <p><strong>Title:</strong> <span th:text="${book.title}"></span></p>
+    <p><strong>Authors:</strong> <span th:text="${book.authors}"></span></p>
+    <p><strong>Category:</strong> <span th:text="${book.category}"></span></p>
+    <img th:src="${book.thumbnailUrl}" alt="Book Thumbnail" />
+</div>
 </body>
 </html>
