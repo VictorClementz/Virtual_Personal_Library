@@ -11,11 +11,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Controller
+@RestController
 @RequestMapping("/books")
 @CrossOrigin(origins = "http://localhost:3000")
 public class BookController {
-
 
     private final BookRepository bookRepository;
     private final GoogleBooksService googleBooksService;
@@ -25,35 +24,43 @@ public class BookController {
         this.googleBooksService = googleBooksService;
     }
 
-   // json fronntend
+    // json frontend - single result (backward compatibility)
     @GetMapping("/search-json")
-    @ResponseBody
     public Book fetchBookDetailsJson(@RequestParam String query) {
         return googleBooksService.getBookDetails(query);
     }
 
+    // json frontend - flexible search with custom maxResults
+    @GetMapping("/search")
+    public List<Book> fetchBooksJson(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "5") int maxResults) {
+        return googleBooksService.getBookDetails(query, maxResults);
+    }
+
+    // Convenience endpoint for multiple results (uses default of 5)
+    @GetMapping("/search-multiple")
+    public List<Book> fetchMultipleBookDetailsJson(@RequestParam String query) {
+        return googleBooksService.getMultipleBookDetails(query);
+    }
 
     @PostMapping
-    @ResponseBody
     public Book addBook(@RequestBody Book book) {
         return bookRepository.save(book);
     }
 
     @GetMapping
-    @ResponseBody
     public List<Book> getAllBooks() {
         return bookRepository.findAll();
     }
 
     @GetMapping("/{id}")
-    @ResponseBody
     public Book getBookById(@PathVariable Long id) {
         return bookRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Book not found with id " + id));
     }
 
     @PutMapping("/{id}")
-    @ResponseBody
     public Book updateBook(@PathVariable Long id, @RequestBody Book updatedBook) {
         return bookRepository.findById(id)
                 .map(book -> {
@@ -67,7 +74,6 @@ public class BookController {
     }
 
     @DeleteMapping("/{id}")
-    @ResponseBody
     public ResponseEntity<String> deleteBook(@PathVariable Long id) {
         bookRepository.deleteById(id);
         return ResponseEntity.ok("Book deleted successfully!");
@@ -77,13 +83,12 @@ public class BookController {
     @GetMapping("/fetch-book")
     public String fetchBookDetails(@RequestParam String query, Model model) {
         Book book = googleBooksService.getBookDetails(query);
-        model.addAttribute("book", book);
+        model.addAttribute("book", query);
         return "search";
     }
 
-    @GetMapping("/search")
+    @GetMapping("/search-form")
     public String showSearchForm() {
         return "search";
     }
-
 }

@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Search, BookOpen, Plus, X, Library, Tag, User, Heart } from 'lucide-react';
 import './App.css';
+import { debounce } from 'lodash';
 
 const App = () => {
   // State management
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
   const [personalLibrary, setPersonalLibrary] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState('search');
   const [notification, setNotification] = useState('');
 
@@ -17,36 +15,6 @@ const App = () => {
   }, []);
 
   // API calls to your backend
-  const searchBooks = async (query) => {
-    if (!query.trim()) return;
-
-    setIsSearching(true);
-    try {
-      // Adjust this URL based on your backend server port (usually 8080)
-      const response = await fetch(`http://localhost:8080/books/search-json?query=${encodeURIComponent(query)}`);
-
-
-      if (!response.ok) {
-        throw new Error('Search failed');
-      }
-
-      // Since your current endpoint returns HTML (Thymeleaf), we need to modify this
-      // For now, let's assume you'll create a JSON endpoint
-      const book = await response.json();
-
-      if (book && book.title) {
-        setSearchResults([book]);
-      } else {
-        setSearchResults([]);
-      }
-    } catch (error) {
-      console.error('Search failed:', error);
-      setSearchResults([]);
-      showNotification('Search failed. Please try again.');
-    }
-    setIsSearching(false);
-  };
-
   const addToLibrary = async (book) => {
     try {
       const response = await fetch('http://localhost:8080/books', {
@@ -180,51 +148,102 @@ const App = () => {
     </div>
   );
 
-  const SearchTab = () => (
-    <div className="tab-content">
-      <div className="search-form">
-        <div className="search-input-container">
-          <Search className="search-icon" size={20} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch(e)}
-            placeholder="Search by book title or ISBN..."
-            className="search-input"
-          />
-        </div>
-        <button
-          onClick={handleSearch}
-          disabled={isSearching}
-          className="btn btn-search"
-        >
-          {isSearching ? 'Searching...' : 'Search'}
-        </button>
-      </div>
+const SearchTab = () => {
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
 
-      {searchResults.length > 0 && (
-        <div className="results-section">
-          <h2>Search Results</h2>
-          {searchResults.map((book, index) => (
-            <BookCard
-              key={`search-${index}`}
-              book={book}
-              onAdd={addToLibrary}
-            />
-          ))}
-        </div>
-      )}
+    const searchBooks = async (query) => {
+        if (!query.trim()) {
+            setSearchResults([]);
+            setIsSearching(false);
+            return;
+        }
 
-      {searchQuery && searchResults.length === 0 && !isSearching && (
-        <div className="empty-state">
-          <BookOpen size={48} />
-          <p>No books found for "{searchQuery}"</p>
-          <p className="empty-state-subtitle">Try a different search term or ISBN</p>
+        setIsSearching(true);
+        try {
+            // Changed from /search-json to /search-multiple
+            const response = await fetch(`http://localhost:8080/books/search-multiple?query=${encodeURIComponent(query.trim())}`);
+
+            if (!response.ok) {
+                throw new Error('Search failed');
+            }
+
+            const books = await response.json();
+            console.log('Received books:', books); // For debugging
+
+            setSearchResults(books); // No need to wrap in array anymore
+        } catch (error) {
+            console.error('Search failed:', error);
+            setSearchResults([]);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const debouncedSearch = debounce(searchBooks, 300);
+
+    return (
+        <div className="tab-content">
+            <div className="search-form">
+                <div className="search-input-container">
+                    <Search className="search-icon" size={20} />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => {
+                            const newValue = e.target.value;
+                            setSearchQuery(newValue);
+                            debouncedSearch(newValue);
+                        }}
+                        placeholder="Search by book title or ISBN..."
+                        className="search-input"
+                    />
+                </div>
+            </div>
+
+            {isSearching && (
+                <div className="loading-state">
+                    <p>Searching...</p>
+                </div>
+            )}
+
+            {searchResults.length > 0 && (
+                <div className="results-section">
+                    <h2>Search Results</h2>
+                    <div className="book-grid">
+                        {searchResults.map((book, index) => (
+                            <div key={index} className="book-card">
+                                {book.thumbnailUrl && (
+                                    <img 
+                                        src={book.thumbnailUrl} 
+                                        alt={book.title}
+                                        className="book-thumbnail"
+                                    />
+                                )}
+                                <h3>{book.title}</h3>
+                                <p>{book.authors}</p>
+                                <p>{book.category}</p>
+                                <button 
+                                    onClick={() => addToLibrary(book)}
+                                    className="add-button"
+                                >
+                                    Add to Library
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {searchQuery && searchResults.length === 0 && !isSearching && (
+                <div className="empty-state">
+                    <p>No books found for "{searchQuery}"</p>
+                </div>
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
+};
 
   const LibraryTab = () => (
     <div className="tab-content">
@@ -297,7 +316,9 @@ const App = () => {
 
       {/* Main Content */}
       <main className="main-content">
-        {activeTab === 'search' ? <SearchTab /> : <LibraryTab />}
+        {activeTab === 'search' && <SearchTab />}
+        {activeTab === 'library' && <LibraryTab />}
+
       </main>
 
       {/* Notification */}

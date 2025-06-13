@@ -18,25 +18,47 @@ public class GoogleBooksService {
         this.restTemplate = new RestTemplate();
     }
 
-    public Book getBookDetails(String query) {
+    // Main method that handles both single and multiple results
+    public List<Book> getBookDetails(String query, int maxResults) {
         String url = UriComponentsBuilder.fromHttpUrl("https://www.googleapis.com/books/v1/volumes")
                 .queryParam("q", query)
-                .queryParam("maxResults", "1")
+                .queryParam("maxResults", maxResults)
                 .build().toUriString();
 
         JsonNode root = restTemplate.getForObject(url, JsonNode.class);
 
-        if (root == null || !root.has("items") || !root.get("items").isArray() || root.get("items").size() == 0) {
-            System.out.println("No books found for query: " + query);
-            return new Book();  //return empty
+        List<Book> books = new ArrayList<>();
+
+        if (root == null || !root.has("items") || !root.get("items").isArray()) {
+            System.out.println("No books found");
+            return books; // Return empty list
         }
 
-        JsonNode volume = root.get("items").get(0);  // Get the first result
-        JsonNode volumeInfo = volume.path("volumeInfo");  // Use path() to avoid exceptions
+        for (JsonNode volume : root.get("items")) {
+            Book book = parseBookFromJson(volume);
+            books.add(book);
+        }
 
+        System.out.println("Fetched " + books.size() + " books");
+        return books;
+    }
+
+    // Convenience method for single book (backward compatibility)
+    public Book getBookDetails(String query) {
+        List<Book> books = getBookDetails(query, 1);
+        return books.isEmpty() ? new Book() : books.get(0);
+    }
+
+    // Convenience method for multiple books with default of 5
+    public List<Book> getMultipleBookDetails(String query) {
+        return getBookDetails(query, 5);
+    }
+
+    // Private helper method to parse a single book from JSON
+    private Book parseBookFromJson(JsonNode volume) {
+        JsonNode volumeInfo = volume.path("volumeInfo");
         Book book = new Book();
 
-        // Ill change to more readable statements sometime(later)
         book.setTitle(volumeInfo.path("title").asText("Unknown Title"));
 
         if (volumeInfo.has("authors") && volumeInfo.get("authors").isArray()) {
@@ -63,12 +85,6 @@ public class GoogleBooksService {
         String thumbnail = imageLinks.path("thumbnail").asText(null);
         book.setThumbnailUrl(thumbnail);
 
-        // Debug printout
-        System.out.println("Fetched Book: " + book);
-
         return book;
     }
-
-
 }
-

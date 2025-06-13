@@ -13,11 +13,10 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/books/**")
-                .allowedOrigins("http://localhost:3000")
+                .allowedOrigins("http://localhost:3000") // Changed back to port 3000
                 .allowedMethods("GET", "POST", "PUT", "DELETE")
-                .allowedHeaders("*")
-                .allowCredentials(true);
-    }
+                .allowedHeaders("*");
+}
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
